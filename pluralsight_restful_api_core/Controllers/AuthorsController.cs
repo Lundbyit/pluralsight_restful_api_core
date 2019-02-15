@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using pluralsight_restful_api_core.Entities;
+using pluralsight_restful_api_core.Helpers;
 using pluralsight_restful_api_core.Models;
 using pluralsight_restful_api_core.Services;
 using System;
@@ -14,17 +15,78 @@ namespace pluralsight_restful_api_core.Controllers
     public class AuthorsController : Controller
     {
         private ILibraryRepository _libraryRepository;
-        public AuthorsController(ILibraryRepository libraryRepository)
+        private IUrlHelper _urlHelper;
+
+        public AuthorsController(ILibraryRepository libraryRepository, IUrlHelper urlHelper)
         {
             _libraryRepository = libraryRepository;
+            _urlHelper = urlHelper;
         }
 
-        [HttpGet()]
-        public IActionResult GetAuthors()
+        [HttpGet(Name = "GetAuthors")]
+        public IActionResult GetAuthors(AuthorsResourceParameters authorResourceParameters)
         {
-                var authorsFromRepo = _libraryRepository.GetAuthors().ToList();
-                var authors = Mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo);
-                return Ok(authors);
+            var authorsFromRepo = _libraryRepository.GetAuthors(authorResourceParameters);
+
+            var previousPageLink = authorsFromRepo.HasPrevious
+                ? CreateAuthorsResourceUri(authorResourceParameters, ResourceUriType.PreviousPage)
+                : null;
+
+            var nextPageLink = authorsFromRepo.HasNext
+                ? CreateAuthorsResourceUri(authorResourceParameters, ResourceUriType.NextPage)
+                : null;
+
+            var paginationMetaData = new
+            {
+                totalCount = authorsFromRepo.TotalCount,
+                pageSize = authorsFromRepo.PageSize,
+                currentPage = authorsFromRepo.CurrentPage,
+                totalPages = authorsFromRepo.TotalPages,
+                previousPageLink,
+                nextPageLink
+            };
+
+            Response.Headers.Add("X-Pagination",
+                Newtonsoft.Json.JsonConvert.SerializeObject(paginationMetaData));
+
+            var authors = Mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo);
+            return Ok(authors);
+        }
+
+        private string CreateAuthorsResourceUri(AuthorsResourceParameters authorsResourceParameters,
+            ResourceUriType type)
+        {
+            switch (type)
+            {
+                case ResourceUriType.PreviousPage:
+                    return _urlHelper.Link("GetAuthors",
+                      new
+                      {
+                          searchQuery = authorsResourceParameters.SearchQuery,
+                          genre = authorsResourceParameters.Genre,
+                          pageNumber = authorsResourceParameters.PageNumber - 1,
+                          pageSize = authorsResourceParameters.PageSize
+                      });
+                case ResourceUriType.NextPage:
+                    return _urlHelper.Link("GetAuthors",
+                      new
+                      {
+                          searchQuery = authorsResourceParameters.SearchQuery,
+                          genre = authorsResourceParameters.Genre,
+                          pageNumber = authorsResourceParameters.PageNumber + 1,
+                          pageSize = authorsResourceParameters.PageSize
+                      });
+
+                default:
+                    return _urlHelper.Link("GetAuthors",
+                    new
+                    {
+                        searchQuery = authorsResourceParameters.SearchQuery,
+                        genre = authorsResourceParameters.Genre,
+                        pageNumber = authorsResourceParameters.PageNumber,
+                        pageSize = authorsResourceParameters.PageSize
+                    });
+            }
         }
 
         [HttpGet("{authorId}", Name = "GetAuthor")]
@@ -60,7 +122,7 @@ namespace pluralsight_restful_api_core.Controllers
             }
 
             var authorToReturn = Mapper.Map<AuthorDto>(newAuthorEntity);
-            
+
             return CreatedAtRoute("GetAuthor", new { authorId = authorToReturn.Id }, authorToReturn);
         }
 

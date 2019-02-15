@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using pluralsight_restful_api_core.Entities;
 using pluralsight_restful_api_core.Models;
 using pluralsight_restful_api_core.Services;
@@ -14,10 +15,13 @@ namespace pluralsight_restful_api_core.Controllers
     [Route("api/authors/{authorId}/books")]
     public class BooksController : Controller
     {
-        ILibraryRepository _libraryRepository { get; set; }
-        public BooksController(ILibraryRepository libraryRepository)
+        private ILibraryRepository _libraryRepository;
+        private ILogger<BooksController> _logger;
+
+        public BooksController(ILibraryRepository libraryRepository, ILogger<BooksController> logger)
         {
             _libraryRepository = libraryRepository;
+            _logger = logger;
         }
         [HttpGet()]
         public IActionResult GetBooksForAuthor(Guid authorId)
@@ -59,6 +63,16 @@ namespace pluralsight_restful_api_core.Controllers
             if (newBook == null)
             {
                 return BadRequest();
+            }
+
+            if (newBook.Title == newBook.Description)
+            {
+                ModelState.AddModelError(nameof(BookForCreationDto), "title and description should be different");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return new UnprocessableEntityObjectResult(ModelState);
             }
 
             if (!_libraryRepository.AuthorExists(authorId))
@@ -103,6 +117,8 @@ namespace pluralsight_restful_api_core.Controllers
                 throw new Exception("Could not delete book");
             }
 
+            _logger.LogInformation(100, $"Bookid: {bookId} has been deleted");
+
             return NoContent();
         }
 
@@ -113,6 +129,16 @@ namespace pluralsight_restful_api_core.Controllers
             if (book == null)
             {
                 return BadRequest();
+            }
+
+            if (book.Title == book.Description)
+            {
+                ModelState.AddModelError(nameof(BookForUpdateDto), "title and description should be different");
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return new UnprocessableEntityObjectResult(ModelState);
             }
 
             if (!_libraryRepository.AuthorExists(authorId))
@@ -173,6 +199,20 @@ namespace pluralsight_restful_api_core.Controllers
                 var bookDto = new BookForUpdateDto();
 
                 patchDoc.ApplyTo(bookDto);
+                //patchDoc.ApplyTo(bookDto, ModelState);
+
+                if (bookDto.Title == bookDto.Description)
+                {
+                    ModelState.AddModelError(nameof(BookForUpdateDto), "Title and description cannot be the same");
+                }
+
+                TryValidateModel(bookDto);
+
+                if (!ModelState.IsValid)
+                {
+                    return new UnprocessableEntityObjectResult(ModelState);
+                }
+
                 var bookToAdd = Mapper.Map<Book>(bookDto);
                 bookToAdd.Id = bookId;
 
@@ -192,7 +232,19 @@ namespace pluralsight_restful_api_core.Controllers
 
             var bookToPatch = Mapper.Map<BookForUpdateDto>(bookFromRepo);
 
-            patchDoc.ApplyTo(bookToPatch);
+            patchDoc.ApplyTo(bookToPatch, ModelState);
+
+            if (bookToPatch.Title == bookToPatch.Description)
+            {
+                ModelState.AddModelError(nameof(BookForUpdateDto), "Title and description cannot be the same");
+            }
+
+            TryValidateModel(bookToPatch);
+
+            if (!ModelState.IsValid)
+            {
+                return new UnprocessableEntityObjectResult(ModelState);
+            }
 
             Mapper.Map(bookToPatch, bookFromRepo);
 

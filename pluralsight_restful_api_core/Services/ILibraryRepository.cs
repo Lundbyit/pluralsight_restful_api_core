@@ -1,4 +1,5 @@
 ﻿using pluralsight_restful_api_core.Entities;
+using pluralsight_restful_api_core.Helpers;
 using System;
 using System.Collections.Generic;
 
@@ -6,7 +7,7 @@ namespace pluralsight_restful_api_core.Services
 {
     public interface ILibraryRepository
     {
-        IEnumerable<Author> GetAuthors();
+        PagedList<Author> GetAuthors(AuthorsResourceParameters authorResourceParameters);
         Author GetAuthor(Guid authorId);
         IEnumerable<Author> GetAuthors(IEnumerable<Guid> authorIds);
         void AddAuthor(Author author);
