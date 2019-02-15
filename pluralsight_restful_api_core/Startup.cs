@@ -88,6 +88,7 @@ namespace pluralsight_restful_api_core
                 cfg.CreateMap<AuthorForCreationDto, Author>();
                 cfg.CreateMap<BookForCreationDto, Book>();
                 cfg.CreateMap<BookForUpdateDto, Book>();
+                cfg.CreateMap<Book, BookDto>();
             });
 
             libraryContext.EnsureSeedDataForContext();

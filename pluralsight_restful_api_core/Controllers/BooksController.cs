@@ -17,13 +17,16 @@ namespace pluralsight_restful_api_core.Controllers
     {
         private ILibraryRepository _libraryRepository;
         private ILogger<BooksController> _logger;
+        private IUrlHelper _urlHelper;
 
-        public BooksController(ILibraryRepository libraryRepository, ILogger<BooksController> logger)
+        public BooksController(ILibraryRepository libraryRepository, ILogger<BooksController> logger,
+            IUrlHelper urlHelper)
         {
             _libraryRepository = libraryRepository;
             _logger = logger;
+            _urlHelper = urlHelper;
         }
-        [HttpGet()]
+        [HttpGet(Name = "GetBooksForAuthor")]
         public IActionResult GetBooksForAuthor(Guid authorId)
         {
             if (!_libraryRepository.AuthorExists(authorId))
@@ -34,7 +37,16 @@ namespace pluralsight_restful_api_core.Controllers
             var booksFromRepo = _libraryRepository.GetBooksForAuthor(authorId);
 
             var books = Mapper.Map<IEnumerable<BookDto>>(booksFromRepo);
-            return Ok(books);
+
+            books = books.Select(book =>
+            {
+                book = CreateLinksForBook(book);
+                return book;
+            });
+
+            var wrapper = new LinkedCollectionResourceWrapperDto<BookDto>(books);
+            
+            return Ok(CreateLinksForBooks(wrapper));
         }
 
         [HttpGet("{bookId}", Name = "GetBookForAuthor")]
@@ -54,10 +66,10 @@ namespace pluralsight_restful_api_core.Controllers
 
             var bookResult = Mapper.Map<BookDto>(bookFromRepo);
 
-            return Ok(bookResult);
+            return Ok(CreateLinksForBook(bookResult));
         }
 
-        [HttpPost()]
+        [HttpPost(Name = "CreateBookForAuthor")]
         public IActionResult CreateBookForAuthor(Guid authorId, [FromBody] BookForCreationDto newBook)
         {
             if (newBook == null)
@@ -93,10 +105,10 @@ namespace pluralsight_restful_api_core.Controllers
 
             return CreatedAtRoute("GetBookForAuthor",
                 new { authorId = bookToReturn.AuthorId, bookId = bookToReturn.Id },
-                bookToReturn);
+                CreateLinksForBook(bookToReturn));
         }
 
-        [HttpDelete("{bookId}")]
+        [HttpDelete("{bookId}", Name = "DeleteBookForAuthor")]
         public IActionResult DeleteBookForAuthor(Guid authorId, Guid bookId)
         {
             if (!_libraryRepository.AuthorExists(authorId))
@@ -122,7 +134,7 @@ namespace pluralsight_restful_api_core.Controllers
             return NoContent();
         }
 
-        [HttpPut("{bookId}")]
+        [HttpPut("{bookId}", Name = "UpdateBookForAuthor")]
         public IActionResult UpdateBookForAuthor(Guid authorId, Guid bookId,
             [FromBody] BookForUpdateDto book)
         {
@@ -164,7 +176,7 @@ namespace pluralsight_restful_api_core.Controllers
 
                 return CreatedAtRoute("GetBookForAuthor",
                     new { authorId = bookToReturn.AuthorId, bookId = bookToReturn.Id },
-                    bookToReturn);
+                    CreateLinksForBook(bookToReturn));
             }
 
             Mapper.Map(book, bookFromRepo);
@@ -178,7 +190,7 @@ namespace pluralsight_restful_api_core.Controllers
             return Ok();
         }
 
-        [HttpPatch("{bookId}")]
+        [HttpPatch("{bookId}", Name = "PartiallyUpdateBookForAuthor")]
         public IActionResult PartiallyUpdateBookForAuthor(Guid authorId, Guid bookId,
             [FromBody] JsonPatchDocument<BookForUpdateDto> patchDoc)
         {
@@ -256,6 +268,45 @@ namespace pluralsight_restful_api_core.Controllers
             }
 
             return NoContent();
+        }
+
+        private BookDto CreateLinksForBook(BookDto book)
+        {
+            book.Links.Add(new LinkDto(_urlHelper.Link("GetBookForAuthor",
+                new { bookId = book.Id }),
+                "self",
+                "GET"));
+
+            book.Links.Add(
+                new LinkDto(_urlHelper.Link("DeleteBookForAuthor",
+                new { bookId = book.Id }),
+                "delete_book",
+                "DELETE"));
+
+            book.Links.Add(
+                new LinkDto(_urlHelper.Link("UpdateBookForAuthor",
+                new { bookId = book.Id }),
+                "update_book",
+                "PUT"));
+
+            book.Links.Add(
+                new LinkDto(_urlHelper.Link("PartiallyUpdateBookForAuthor",
+                new { bookId = book.Id }),
+                "partially_update_book",
+                "PATCH"));
+
+            return book;
+        }
+
+        private LinkedCollectionResourceWrapperDto<BookDto> CreateLinksForBooks(
+            LinkedCollectionResourceWrapperDto<BookDto> booksWrapper)
+        {
+            booksWrapper.Links.Add(
+                new LinkDto(_urlHelper.Link("GetBooksForAuthor", new { }),
+                "self",
+                "GET"));
+
+            return booksWrapper;
         }
     }
 }

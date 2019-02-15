@@ -8,6 +8,7 @@ namespace pluralsight_restful_api_core.Helpers
     public enum ResourceUriType
     {
         PreviousPage,
-        NextPage
+        NextPage,
+        Current
     }
 }
