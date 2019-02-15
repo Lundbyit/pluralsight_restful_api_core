@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Serialization;
 using pluralsight_restful_api_core.Entities;
 using pluralsight_restful_api_core.Helpers;
 using pluralsight_restful_api_core.Models;
@@ -32,7 +33,13 @@ namespace pluralsight_restful_api_core
             {
                 setupAction.ReturnHttpNotAcceptable = true;
                 //setupAction.OutputFormatters.Add(new XmlDataContractSerializerOutputFormatter());
-            }).AddXmlDataContractSerializerFormatters();
+            })
+            //.AddXmlDataContractSerializerFormatters()
+            .AddJsonOptions(options =>
+            {
+                options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+
+            });
 
             var connectionString = Configuration["connectionStrings:libraryDBConnectionString"];
             services.AddDbContext<LibraryContext>(o => o.UseSqlServer(connectionString));
@@ -45,6 +52,10 @@ namespace pluralsight_restful_api_core
                 var actionContext = implementationFactory.GetService<IActionContextAccessor>().ActionContext;
                 return new UrlHelper(actionContext);
             });
+
+            services.AddTransient<IPropertyMappingService, PropertyMappingService>();
+
+            services.AddTransient<ITypeHelperService, TypeHelperService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

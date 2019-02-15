@@ -24,5 +24,7 @@ namespace pluralsight_restful_api_core.Helpers
 
         public string Genre { get; set; }
         public string SearchQuery { get; set; }
+        public string OrderBy { get; set; } = "Name";
+        public string Fields { get; set; }
     }
 }

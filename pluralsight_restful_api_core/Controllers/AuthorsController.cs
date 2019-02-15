@@ -15,17 +15,32 @@ namespace pluralsight_restful_api_core.Controllers
     public class AuthorsController : Controller
     {
         private ILibraryRepository _libraryRepository;
+        private IPropertyMappingService _propertyMappingService;
+        private ITypeHelperService _typeHelperService;
         private IUrlHelper _urlHelper;
 
-        public AuthorsController(ILibraryRepository libraryRepository, IUrlHelper urlHelper)
+        public AuthorsController(ILibraryRepository libraryRepository, IUrlHelper urlHelper,
+            IPropertyMappingService propertyMappingService, ITypeHelperService typeHelperService)
         {
             _libraryRepository = libraryRepository;
+            _propertyMappingService = propertyMappingService;
+            _typeHelperService = typeHelperService;
             _urlHelper = urlHelper;
         }
 
         [HttpGet(Name = "GetAuthors")]
         public IActionResult GetAuthors(AuthorsResourceParameters authorResourceParameters)
         {
+            if (!_propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>(
+                authorResourceParameters.OrderBy))
+            {
+                return BadRequest();
+            }
+
+            if (!_typeHelperService.TypeHasProperties<AuthorDto>(authorResourceParameters.Fields))
+            {
+                return BadRequest();
+            }
             var authorsFromRepo = _libraryRepository.GetAuthors(authorResourceParameters);
 
             var previousPageLink = authorsFromRepo.HasPrevious
@@ -50,7 +65,7 @@ namespace pluralsight_restful_api_core.Controllers
                 Newtonsoft.Json.JsonConvert.SerializeObject(paginationMetaData));
 
             var authors = Mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo);
-            return Ok(authors);
+            return Ok(authors.ShapeData(authorResourceParameters.Fields));
         }
 
         private string CreateAuthorsResourceUri(AuthorsResourceParameters authorsResourceParameters,
@@ -62,6 +77,8 @@ namespace pluralsight_restful_api_core.Controllers
                     return _urlHelper.Link("GetAuthors",
                       new
                       {
+                          fields = authorsResourceParameters.Fields,
+                          orderby = authorsResourceParameters.OrderBy,
                           searchQuery = authorsResourceParameters.SearchQuery,
                           genre = authorsResourceParameters.Genre,
                           pageNumber = authorsResourceParameters.PageNumber - 1,
@@ -71,6 +88,8 @@ namespace pluralsight_restful_api_core.Controllers
                     return _urlHelper.Link("GetAuthors",
                       new
                       {
+                          fields = authorsResourceParameters.Fields,
+                          orderby = authorsResourceParameters.OrderBy,
                           searchQuery = authorsResourceParameters.SearchQuery,
                           genre = authorsResourceParameters.Genre,
                           pageNumber = authorsResourceParameters.PageNumber + 1,
@@ -81,6 +100,8 @@ namespace pluralsight_restful_api_core.Controllers
                     return _urlHelper.Link("GetAuthors",
                     new
                     {
+                        fields = authorsResourceParameters.Fields,
+                        orderby = authorsResourceParameters.OrderBy,
                         searchQuery = authorsResourceParameters.SearchQuery,
                         genre = authorsResourceParameters.Genre,
                         pageNumber = authorsResourceParameters.PageNumber,
@@ -90,8 +111,13 @@ namespace pluralsight_restful_api_core.Controllers
         }
 
         [HttpGet("{authorId}", Name = "GetAuthor")]
-        public IActionResult GetAuthor(Guid authorId)
+        public IActionResult GetAuthor(Guid authorId, [FromQuery] string fields)
         {
+            if (!_typeHelperService.TypeHasProperties<Author>(fields))
+            {
+                return BadRequest();
+            }
+
             var authorFromRepo = _libraryRepository.GetAuthor(authorId);
 
             if (authorFromRepo == null)
@@ -101,7 +127,7 @@ namespace pluralsight_restful_api_core.Controllers
 
             var author = Mapper.Map<AuthorDto>(authorFromRepo);
 
-            return Ok(author);
+            return Ok(author.ShapeObject(fields));
         }
 
         [HttpPost()]

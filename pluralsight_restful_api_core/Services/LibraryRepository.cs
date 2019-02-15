@@ -1,5 +1,6 @@
 ﻿using pluralsight_restful_api_core.Entities;
 using pluralsight_restful_api_core.Helpers;
+using pluralsight_restful_api_core.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +10,13 @@ namespace pluralsight_restful_api_core.Services
     public class LibraryRepository : ILibraryRepository
     {
         private LibraryContext _context;
+        private IPropertyMappingService _propertyMappingService;
 
-        public LibraryRepository(LibraryContext context)
+        public LibraryRepository(LibraryContext context,
+            IPropertyMappingService propertyMappingService)
         {
             _context = context;
+            _propertyMappingService = propertyMappingService;
         }
 
         public void AddAuthor(Author author)
@@ -65,15 +69,19 @@ namespace pluralsight_restful_api_core.Services
             return _context.Authors.FirstOrDefault(a => a.Id == authorId);
         }
 
-        public PagedList<Author> GetAuthors(AuthorsResourceParameters authorsResourceParameters)
+        public PagedList<Author> GetAuthors(
+            AuthorsResourceParameters authorsResourceParameters)
         {
             var collectionBeforePaging = _context.Authors
-                .OrderBy(a => a.FirstName)
-                .ThenBy(a => a.LastName).AsQueryable();
+                .ApplySort(authorsResourceParameters.OrderBy,
+                _propertyMappingService.GetPropertyMapping<AuthorDto, Author>());
 
             if (!string.IsNullOrEmpty(authorsResourceParameters.Genre))
             {
-                var genreForWhereClause = authorsResourceParameters.Genre.Trim().ToLowerInvariant();
+                var genreForWhereClause = authorsResourceParameters.Genre
+                    .Trim()
+                    .ToLowerInvariant();
+
                 collectionBeforePaging = collectionBeforePaging
                     .Where(a => a.Genre.ToLowerInvariant() == genreForWhereClause);
             }
@@ -131,3 +139,4 @@ namespace pluralsight_restful_api_core.Services
         }
     }
 }
+
