@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ using pluralsight_restful_api_core.Entities;
 using pluralsight_restful_api_core.Helpers;
 using pluralsight_restful_api_core.Models;
 using pluralsight_restful_api_core.Services;
+using System.Linq;
 
 namespace pluralsight_restful_api_core
 {
@@ -33,6 +35,25 @@ namespace pluralsight_restful_api_core
             {
                 setupAction.ReturnHttpNotAcceptable = true;
                 //setupAction.OutputFormatters.Add(new XmlDataContractSerializerOutputFormatter());
+
+                var inputFormatter = setupAction.InputFormatters
+                    .OfType<JsonInputFormatter>().FirstOrDefault();
+
+                if (inputFormatter != null)
+                {
+                    inputFormatter.SupportedMediaTypes
+                        .Add("application/vnd.custom.author.full+json");
+                    inputFormatter.SupportedMediaTypes
+                        .Add("application/vnd.custom.authorwithdateofdeath.full+json");
+                }
+
+                var outputFormatter = setupAction.OutputFormatters
+                    .OfType<JsonOutputFormatter>().FirstOrDefault();
+
+                if (outputFormatter != null)
+                {
+                    outputFormatter.SupportedMediaTypes.Add("application/vnd.custom.hateoas+json");
+                }
             })
             //.AddXmlDataContractSerializerFormatters()
             .AddJsonOptions(options =>
@@ -83,9 +104,10 @@ namespace pluralsight_restful_api_core
                     .ForMember(dest => dest.Name, opt => opt.MapFrom(src =>
                     $"{src.FirstName} {src.LastName}"))
                     .ForMember(dest => dest.Age, opt => opt.MapFrom(src =>
-                    src.DateOfBirth.GetCurrentAge()));
+                    src.DateOfBirth.GetCurrentAge(src.DateOfDeath)));
 
                 cfg.CreateMap<AuthorForCreationDto, Author>();
+                cfg.CreateMap<AuthorForCreationWithDateOfDeathDto, Author>();
                 cfg.CreateMap<BookForCreationDto, Book>();
                 cfg.CreateMap<BookForUpdateDto, Book>();
                 cfg.CreateMap<Book, BookDto>();

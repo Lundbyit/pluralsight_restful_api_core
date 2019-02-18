@@ -14,6 +14,8 @@
   <ItemGroup>
     <Compile Include="Migrations\20190212151107_InitialMigration.cs" />
     <Compile Include="Migrations\20190212151107_InitialMigration.Designer.cs" />
+    <Compile Include="Migrations\20190218091347_AddDateOfDeathToAuthor.cs" />
+    <Compile Include="Migrations\20190218091347_AddDateOfDeathToAuthor.Designer.cs" />
     <Compile Include="Migrations\LibraryContextModelSnapshot.cs" />
   </ItemGroup>
 
